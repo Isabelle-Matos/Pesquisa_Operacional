@@ -5,113 +5,60 @@ using namespace std;
 ILOSTLBEGIN //MACRO - "using namespace" for ILOCPEX
 #define CPLEX_TIME_LIM 3600 //3600 segundos
 
-struct Aresta{
-    int custo, fluxo_maximo;
-    bool conectado;
-};
-
-struct No{
-    int id, valor;
-};
-
 int N, M; // Quantidade de vertices (N) e quantidade de arestas (M)
-vector<Aresta> aresta; // vetor de arestas
-vector<No> no; // vetor de nos
-vector<No> S, D, T; // S -> Vector de oferta, D -> Vector de demanda, T -> Vector de transbordo
+vector<vector<int>> custo;
 
-void cplex(vector<vector<Aresta>> &g){
+
+void cplex(vector<vector<int>> &custo){
     //CPLEX
     IloEnv env; //Define o ambiente do CPLEX
 
     //Variaveis --------------------------------------------- 
     int i, j, k; //Auxiliares
 
-
     //---------- MODELAGEM ---------------
-    //Definicao - Variaveis de Decisao 2 dimensoes (x_ij) não binárias (discretas)
+    //VARIAVEIS DE DECISAO (x_i) binaria
     IloArray<IloNumVarArray> x(env);
-    for( i = 0; i < N; i++ ){
-        x.add(IloNumVarArray(env));
-        for( j = 0; j < N; j++ ){
-            if(g[i][j].conectado == 1){
-                x[i].add(IloIntVar(env, 0, g[i][j].fluxo_maximo));
-            }else{
-                x[i].add(IloIntVar(env, 0, 0));
-            }
-        }
-    }
+	for(i = 0; i < N; i++ ){
+		x.add(IloNumVarArray(env));
+		for( j = 0; j < N; j++ ){
+            x[i].add(IloIntVar(env, 0, 1));
+		}
+	}
 
     //Definicao do ambiente modelo ------------------------------------------
     IloModel model ( env );
     
     // //Definicao do ambiente expressoes, para os somatorios ---------------------------------
     IloExpr sum(env); /// Expression for Sum
-    IloExpr sum2(env); /// Expression for Sum2
 
-    //FUNCAO OBJETIVO: Minimizar o custo total do transporte ---------------------------------------------
+    //FUNCAO OBJETIVO: Determinar a designação de menor custo ---------------------------------------------
     sum.clear();
     for(i = 0; i< N; i++){
         for(j=0; j< N; j++){
-            if(g[i][j].conectado == 1){
-                sum += (g[i][j].custo * x[i][j]); // Somatório do custo de i j * x_i x_j
-            }        
-        }  
-    }
+            sum += (custo[i][j] * x[i][j]); // Somatório do custo de i j * x_i x_j
+        }        
+    }  
     model.add(IloMinimize(env, sum)); //Minimizacao 
 
     //RESTRICOES ---------------------------------------------    
-    // R1 - Restricao de oferta
-    for (int i = 0; i < S.size(); i++) {
-        sum.clear();    
+    
+    // R1 - Restricao de tarefa designada
+    for (int i = 0; i < N; i++) {
+        sum.clear();
         for (int j = 0; j < N; j++) {
-            if (g[S[i].id][j].conectado == 1) {
-                sum += x[S[i].id][j];
-                // cout << "ID " << S[i].id << "VALOR" << S[i].valor << endl;
-            }
+            sum += x[i][j];
         }
-        sum2.clear();
-        for (int k = 0; k < N; k++) {
-            if (g[k][S[i].id].conectado == 1) {
-                sum2 += x[k][S[i].id];
-            }
-        }
-        model.add(sum - sum2 <= S[i].valor);
+        model.add(sum == 1); 
     }
 
-    // R2 - Restricao de demanda
-    for (int i = 0; i < D.size(); i++) {
-    sum.clear();    
+    // R2 - Restricao de pessoa designada
     for (int j = 0; j < N; j++) {
-        if (g[D[i].id][j].conectado == 1) {
-            sum += x[D[i].id][j];
-            // cout << "ID " << D[i].id << "VALOR" << D[i].valor << endl;
+        sum.clear();
+        for (int i = 0; i < N; i++) {
+            sum += x[i][j];
         }
-    }
-    sum2.clear();
-    for (int k = 0; k < N; k++) {
-        if (g[k][D[i].id].conectado == 1) {
-            sum2 += x[k][D[i].id];
-            }
-        }
-        model.add(sum - sum2 <= D[i].valor);
-    }
-
-    // R3 - Restricao de transbordo
-    for (int i = 0; i < T.size(); i++) {
-        sum.clear();    
-        for (int j = 0; j < N; j++) {
-            if (g[T[i].id][j].conectado == 1) {
-                sum += x[T[i].id][j];
-            }
-        }
-        sum2.clear();
-        for (int k = 0; k < N; k++) {
-            if (g[k][T[i].id].conectado == 1) {
-                sum2 += x[k][T[i].id];
-            }
-        }
-
-        model.add(sum - sum2 == 0);
+        model.add(sum == 1);
     }
 
     //------ EXECUCAO do MODELO ----------
@@ -160,10 +107,8 @@ void cplex(vector<vector<Aresta>> &g){
         cout << "Variaveis de decisao: " << endl;
         for( i = 0; i < N; i++ ){
             for(int j = 0; j < N; j++){
-                if(g[i][j].conectado == 1){
-                    value = IloRound(cplex.getValue(x[i][j]));
-                    printf("x[%d][%d]: %.0lf\n", i, j, value);
-                }
+                value = IloRound(cplex.getValue(x[i][j]));
+                printf("x[%d][%d]: %.0lf\n", i, j, value);
             }
         }
         printf("\n");
@@ -178,7 +123,6 @@ void cplex(vector<vector<Aresta>> &g){
     //Free Memory
     cplex.end();
     sum.end();
-    sum2.end();
 
     cout << "Memory usage before end:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
     env.end();
@@ -187,50 +131,24 @@ void cplex(vector<vector<Aresta>> &g){
 int main(){
   //Leitura dos dados:
   //A partir de um arquivo (entrada.txt)
-  int i, s, d, tipo, no_id, oferta, demanda;
-  cin >> N >> M;
-  // no.resize(N);
-    vector<vector<Aresta>> g(N, vector<Aresta>(N, {-1, -1, false}));  
+    int i;
+    cin >> N >> M;
+    custo.resize(N, vector<int> (N));
 
     // leitura do grafo
     for(i=0; i< M; i++){
-        int u, v, c, f_max;
-        cin >> u >> v >> c >> f_max;
-        if(f_max == -1){ // se o fluxo maximo for infinito (-1)
-            f_max = INT_MAX;
+        for(int j = 0; j< N; j++){
+            cin >> custo[i][j];
         }
-        g[u][v] = {c, f_max, true};
-        
-
     }
-    // for(auto x: g){
-    //     for(auto y: x){
-    //         cout << y.custo << ' ' << y.fluxo_maximo << ' ' << y.conectado << " | ";
+
+    // for(int i=0; i< N; i++){
+    //     for(int j=0; j<N; j++){
+    //         cout << custo[i][j] << " ";
     //     }
-    //     cout << endl;
     // }
-    
-    for(int i=0; i< N; i++){
-        int v;
-        cin >> v;
-        if(v > 0){
-            // cout << "Oferta ";
-            S.push_back({i, v});  
-            // cout << "ID " << S.back().id << " Valor " << S.back().valor << endl;
-        }
-        else if(v < 0){
-            // cout << "Demanda ";
-            D.push_back({i, v}); 
-            // cout << "ID " << D.back().id << " Valor " << D.back().valor << endl;
-        }
-        else{
-            // cout << "Transposto ";
-            T.push_back({i, 0});  
-            // cout << "ID " << T.back().id << " Valor " << T.back().valor << endl;
-        }
-    }
 
-    cplex(g);
+    cplex(custo);
 
     return 0;
 }
