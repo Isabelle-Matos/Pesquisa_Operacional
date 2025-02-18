@@ -56,7 +56,7 @@ Para rodar os modelos, é necessário que você tenha o seguinte ambiente config
 
 ## Como Executar
 
-1. **Instalar o CPLEX**: Siga as instruções de instalação fornecidas no [Readme.txt](https://drive.google.com/drive/folders/15IpTiF5wy7uTT6cPGZnlNtJ2_QEGL1oN?usp=sharing).
+1. **Instalar o CPLEX**
 2. **Compilar os Códigos**: Navegue até a pasta do problema desejado e compile o código com o comando:
 
    \`\`\`bash
