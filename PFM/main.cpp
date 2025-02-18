@@ -2,84 +2,154 @@
 #include <ilcplex/ilocplex.h>
 
 using namespace std;
-ILOSTLBEGIN
-#define CPLEX_TIME_LIM 3600
+ILOSTLBEGIN //MACRO - "using namespace" for ILOCPEX
+#define CPLEX_TIME_LIM 3600 //3600 segundos
 
 struct Aresta {
-    int origem, destino, capacidade;
+    int capacidade;
+    bool conectado;
 };
 
-int N, M, s, t; // Nós, arestas, origem, destino
-vector<Aresta> arestas;
+int N, M, s, t; // Quantidade de vertices (N) e quantidade de arestas (M)
+vector<Aresta> aresta; // vetor de arestas
 
-void cplex() {
+void cplex(vector<vector<Aresta>> &g) {
     IloEnv env;
-    try {
-        IloModel model(env);
 
-        // Variáveis de fluxo inteiras (0 <= f[i] <= capacidade)
-        IloNumVarArray f(env, M);
-        for (int i = 0; i < M; i++) {
-            f[i] = IloIntVar(env, 0, arestas[i].capacidade);
-        }
+    int i, j, k;
+    int numberVar = 0;
+    int numberRes = 0;
 
-        // Função Objetivo: Maximizar o fluxo saindo da origem
-        IloExpr fo(env);
-        for (int i = 0; i < M; i++) {
-            if (arestas[i].origem == s) fo += f[i];
-        }
-        model.add(IloMaximize(env, fo));
-        fo.end();
-
-        // Restrições de conservação de fluxo
-        for (int u = 0; u < N; u++) {
-            if (u == s || u == t) continue; // Ignora origem/destino
-
-            IloExpr entrada(env);
-            IloExpr saida(env);
-            
-            for (int i = 0; i < M; i++) {
-                if (arestas[i].destino == u) entrada += f[i];
-                if (arestas[i].origem == u) saida += f[i];
+    IloArray<IloNumVarArray> x(env);
+    for (i = 0; i < N; i++) {
+        x.add(IloNumVarArray(env));
+        for (j = 0; j < N; j++) {
+            if (g[i][j].conectado == 1) {
+                x[i].add(IloIntVar(env, 0, g[i][j].capacidade));
+                numberVar++;
+            } else {
+                x[i].add(IloIntVar(env, 0, 0));
             }
-
-            model.add(entrada == saida); // Entrada = Saída
-            entrada.end();
-            saida.end();
         }
-
-        // Execução
-        IloCplex cplex(model);
-        cplex.setParam(IloCplex::TiLim, CPLEX_TIME_LIM);
-
-        if (cplex.solve()) {
-            cout << "Fluxo Máximo: " << cplex.getObjValue() << endl;
-            cout << "Fluxo nas arestas:" << endl;
-            for (int i = 0; i < M; i++) {
-                cout << arestas[i].origem << " -> " << arestas[i].destino 
-                     << ": " << cplex.getValue(f[i]) << "/" 
-                     << arestas[i].capacidade << endl;
-            }
-        } else {
-            cerr << "Nenhum fluxo viável!" << endl;
-        }
-
-        env.end();
-    } catch (IloException& e) {
-        cerr << "Erro CPLEX: " << e << endl;
     }
+
+    IloModel model(env);
+    IloExpr sum(env);
+    IloExpr sum2(env);
+    sum.clear();
+    
+    //FUNCAO OBJETIVO: Maximizar o fluxo ---------------------------------------------
+
+    for (i = 0; i < N; i++) {
+        if (g[s][i].conectado == 1) {
+            sum += x[s][i];
+        }
+    }
+    model.add(IloMaximize(env, sum));
+
+    //RESTRICOES ---------------------------------------------    
+    // R1 - Tudo que sai da origem == tudo que chega no destino
+    sum2.clear();
+    for (i = 0; i < N; i++) {
+        if (g[i][t].conectado == 1) { // Fluxos chegando no destino t
+            sum2 += x[i][t];
+        }
+    }
+    model.add(sum == sum2);
+
+    // R2 - Conservação de fluxo
+    for (int k = 0; k < N; k++) {
+        if (k != s && k != t) {
+            sum.clear();
+            for (int i = 0; i < N; i++) {
+                if (g[i][k].conectado) {
+                    sum += x[i][k];
+                }
+            }
+            sum2.clear();
+            for (int j = 0; j < N; j++) {
+                if (g[k][j].conectado) {
+                    sum2 += x[k][j];
+                }
+            }
+            model.add(sum == sum2);
+        }
+    }
+
+    // R3 - Capacidade máxima
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            if (g[i][j].conectado) {
+                model.add(x[i][j] <= g[i][j].capacidade);
+            }
+        }
+    }
+
+    // Execução do modelo
+    IloCplex cplex(model);
+    cplex.setParam(IloCplex::TiLim, CPLEX_TIME_LIM);
+
+    time_t timer, timer2;
+    time(&timer);
+    cplex.solve();
+    time(&timer2);
+
+    bool sol = true;
+    string status;
+
+    switch (cplex.getStatus()) {
+        case IloAlgorithm::Optimal:
+            status = "Ótimo";
+            break;
+        case IloAlgorithm::Feasible:
+            status = "Viável";
+            break;
+        default:
+            status = "Sem solução";
+            sol = false;
+    }
+
+    cout << "Status da FO: " << status << endl;
+
+    if (sol) {
+        double objValue = cplex.getObjValue();
+        double runTime = difftime(timer2, timer);
+
+        cout << "Objective Function Value: " << objValue << endl;
+        cout << "Variable Values:" << endl;
+
+        for (i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                if (g[i][j].conectado == 1) {
+                    double value = IloRound(cplex.getValue(x[i][j]));
+                    printf("X[%d][%d]: %.6lf\n", i, j, value);
+                }
+            }
+        }
+
+        cout << "Execution Time: " << runTime << " seconds." << endl;
+    } else {
+        cout << "Sem solução!" << endl;
+    }
+
+    cplex.end();
+    env.end();
 }
 
 int main() {
+    int i;
     cin >> N >> M;
-    cin >> s >> t;
+    vector<vector<Aresta>> g(N, vector<Aresta>(N, {0, false}));
 
-    for (int i = 0; i < M; i++) {
+    for (i = 0; i < M; i++) {
         int u, v, c;
         cin >> u >> v >> c;
-        arestas.push_back({u, v, c});
+        g[u][v] = {c, true};
     }
 
-    cplex();
+    cin >> s >> t;
+
+    cplex(g);
+
     return 0;
 }
