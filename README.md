@@ -45,7 +45,6 @@ A estrutura de pastas do repositório é organizada da seguinte maneira:
 - **Makefile**: Arquivo para automatizar a compilação.
 - **main.cpp**: Arquivo principal com o código C++.
 - **output.txt**: Arquivo de saída com os resultados da execução do programa.
-- 
 ## Requisitos
 
 Para rodar os modelos, é necessário que você tenha o seguinte ambiente configurado:
