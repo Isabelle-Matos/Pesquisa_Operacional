@@ -89,4 +89,3 @@ Aqui, o objetivo é encontrar o caminho de custo mínimo entre dois nós em um g
 ### 5. Problema de Fluxo Máximo (PFM)
 
 Neste problema, busca-se maximizar o fluxo entre dois nós em um grafo, considerando as capacidades das arestas. Assim como no PFCM, a capacidade mínima de cada aresta é zero.
-EOF
