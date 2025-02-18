@@ -63,7 +63,6 @@ void cplex(vector<vector<Aresta>> &g){
     model.add(IloMinimize(env, sum)); //Minimizacao 
 
     //RESTRICOES ---------------------------------------------    
-    
     // R1 - Restricao de oferta
     for (int i = 0; i < S.size(); i++) {
         sum.clear();    

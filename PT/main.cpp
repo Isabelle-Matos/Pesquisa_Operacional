@@ -2,132 +2,212 @@
 #include <ilcplex/ilocplex.h>
 
 using namespace std;
-ILOSTLBEGIN
-#define CPLEX_TIME_LIM 3600
+ILOSTLBEGIN //MACRO - "using namespace" for ILOCPEX
+#define CPLEX_TIME_LIM 3600 //3600 segundos
 
-struct Aresta {
-    int custo, capacidade;
+struct Aresta{
+    int capacidade;
     bool conectado;
 };
 
-int N, M; // N = origens + destinos, M = arestas (origem->destino)
-vector<int> ofertas;
-vector<int> demandas;
-vector<vector<Aresta>> grafo;
+struct No{
+    int id, valor;
+};
 
-void modelagemPT(IloEnv env, IloModel model, IloNumVarArray& x) {
-    // Função Objetivo: Minimizar custo total
-    IloExpr fo(env);
-    for (int i = 0; i < N; i++) {
+int N, M; // Quantidade de vertices (N) e quantidade de arestas (M)
+vector<Aresta> aresta; // vetor de arestas
+vector<No> S, D; // S -> Vector de oferta, D -> Vector de demanda, T -> Vector de transbordo
+
+void cplex(vector<vector<Aresta>> &g){
+    //CPLEX
+    IloEnv env; //Define o ambiente do CPLEX
+
+    //Variaveis --------------------------------------------- 
+    int i, j, k; //Auxiliares
+    int numberVar = 0; //Total de Variaveis
+    int numberRes = 0; //Total de Restricoes
+
+
+    //---------- MODELAGEM ---------------
+    //Definicao - Variaveis de Decisao 2 dimensoes (x_ij) não binárias (discretas)
+    IloArray<IloNumVarArray> x(env);
+    for( i = 0; i < N; i++ ){
+        x.add(IloNumVarArray(env));
+        for( j = 0; j < N; j++ ){
+            if(g[i][j].conectado == 1){
+                x[i].add(IloIntVar(env, 0, INT_MAX));
+                numberVar++;
+            }else{
+                x[i].add(IloIntVar(env, 0, 0));
+            }
+        }
+    }
+
+    //Definicao do ambiente modelo ------------------------------------------
+    IloModel model ( env );
+    
+    // //Definicao do ambiente expressoes, para os somatorios ---------------------------------
+    IloExpr sum(env); /// Expression for Sum
+
+    //FUNCAO OBJETIVO: Minimizar o custo total do transporte mínimo ---------------------------------------------
+    sum.clear();
+    for(i = 0; i< N; i++){
+        for(j=0; j< N; j++){
+            if(g[i][j].conectado == 1){
+                sum += (g[i][j].capacidade * x[i][j]); // Somatório do custo de i j * x_i x_j
+            }        
+        }  
+    }
+    model.add(IloMinimize(env, sum)); //Minimizacao 
+
+    //RESTRICOES ---------------------------------------------    
+    
+    // R1 - Restricao de oferta
+    for (int i = 0; i < S.size(); i++) {
+        sum.clear();    
         for (int j = 0; j < N; j++) {
-            if (grafo[i][j].conectado) {
-                fo += grafo[i][j].custo * x[i*N + j];
+            if (g[S[i].id][j].conectado == 1) {
+                sum += x[S[i].id][j];
+            }
+        }
+        model.add(sum <= S[i].valor);
+        numberRes++;   
+    }
+ 
+
+    // R2 - Restricao de demanda
+    for (int i = 0; i < D.size(); i++) {
+    sum.clear();    
+    for (int j = 0; j < N; j++) {
+        if (g[j][D[i].id].conectado == 1) {
+            sum += x[j][D[i].id];
+        }
+    }
+        model.add(sum == D[i].valor);
+        numberRes++;    
+    }
+
+    //R3 - Restricao de nao negatividade
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            if (g[i][j].conectado == 1) {
+                model.add(0 <= x[i][j]);
+                numberRes++;
             }
         }
     }
-    model.add(IloMinimize(env, fo));
-    fo.end();
 
-    // Restrições de Oferta
-    for (int i = 0; i < ofertas.size(); i++) {
-        IloExpr restricao(env);
-        for (int j = 0; j < N; j++) {
-            if (grafo[i][j].conectado) {
-                restricao += x[i*N + j];
-            }
-        }
-        model.add(restricao <= ofertas[i]);
-        restricao.end();
+    //------ EXECUCAO do MODELO ----------
+    time_t timer, timer2;
+    IloNum value, objValue;
+    double runTime;
+    string status;
+
+    //Informacoes ---------------------------------------------	
+    printf("--------Informacoes da Execucao:----------\n\n");
+    printf("#Var: %d\n", numberVar);
+    printf("#Restricoes: %d\n", numberRes);
+    cout << "Memory usage after variable creation:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
+
+    IloCplex cplex(model);
+    cout << "Memory usage after cplex(Model):  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
+
+    //Setting CPLEX Parameters
+    cplex.setParam(IloCplex::TiLim, CPLEX_TIME_LIM);
+
+    time(&timer);
+    cplex.solve();//COMANDO DE EXECUCAO
+    time(&timer2);
+
+    //Results
+    bool sol = true;
+
+    switch(cplex.getStatus()){
+        case IloAlgorithm::Optimal: 
+            status = "Optimal";
+            break;
+        case IloAlgorithm::Feasible: 
+            status = "Feasible";
+            break;
+        default: 
+            status = "No Solution";
+            sol = false;
     }
 
-    // Restrições de Demanda
-    for (int j = 0; j < demandas.size(); j++) {
-        IloExpr restricao(env);
-        for (int i = 0; i < N; i++) {
-            if (grafo[i][j].conectado) {
-                restricao += x[i*N + j];
-            }
-        }
-        model.add(restricao >= demandas[j]);
-        restricao.end();
-    }
-}
+    cout << endl << endl;
+    cout << "Status da FO: " << status << endl;
 
-void executarCPLEX() {
-    IloEnv env;
-    try {
-        IloModel model(env);
-        IloNumVarArray x(env);
+    if(sol){ 
+
+        objValue = cplex.getObjValue();
+        runTime = difftime(timer2, timer);
         
-        // Criar variáveis inteiras
-        for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
-                if (grafo[i][j].conectado) {
-                    x.add(IloIntVar(env, 0, grafo[i][j].capacidade));
-                } else {
-                    x.add(IloIntVar(env, 0, 0)); // Variável fantasma
+        cout << "Variaveis de decisao: " << endl;
+        for( i = 0; i < N; i++ ){
+            for(int j = 0; j < N; j++){
+                if(g[i][j].conectado == 1){
+                    value = IloRound(cplex.getValue(x[i][j]));
+                    printf("x[%d][%d]: %.0lf\n", i, j, value);
                 }
             }
         }
-
-        modelagemPT(env, model, x);
-
-        IloCplex cplex(model);
-        cplex.setParam(IloCplex::TiLim, CPLEX_TIME_LIM);
+        printf("\n");
         
-        if (cplex.solve()) {
-            cout << "Solução ótima encontrada!" << endl;
-            cout << "Custo total: " << cplex.getObjValue() << endl;
-            
-            // Exibir variáveis
-            for (int i = 0; i < N; i++) {
-                for (int j = 0; j < N; j++) {
-                    if (grafo[i][j].conectado) {
-                        cout << "x[" << i << "][" << j << "] = " 
-                             << cplex.getValue(x[i*N + j]) << endl;
-                    }
-                }
-            }
-        } else {
-            cerr << "Nenhuma solução encontrada!" << endl;
-        }
-    } catch (IloException& e) {
-        cerr << "Erro CPLEX: " << e << endl;
+        cout << "Funcao Objetivo Valor = " << objValue << endl;
+        printf("..(%.6lf seconds).\n\n", runTime);
+
+    }else{
+        printf("No Solution!\n");
     }
+
+    //Free Memory
+    cplex.end();
+    sum.end();
+
+    cout << "Memory usage before end:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
     env.end();
 }
 
-int main() {
+int main(){
+    //Leitura dos dados:
+    //A partir de um arquivo (entrada.txt)
+    int i;
     cin >> N >> M;
-    grafo.resize(N, vector<Aresta>(N, {0, 0, false}));
+    vector<vector<Aresta>> g(N, vector<Aresta>(N, {0, false}));  
 
-    // Ler arestas (origem, destino, custo, capacidade)
-    for (int i = 0; i < M; i++) {
-        int origem, destino, custo, capacidade;
-        cin >> origem >> destino >> custo >> capacidade;
-        grafo[origem][destino] = {custo, capacidade, true};
+    // leitura do grafo
+    for(i=0; i< M; i++){
+        int u, v, c;
+        cin >> u >> v >> c;
+        if(c == -1){ // se o custo for -1 significa que ele é inf
+            c = INT_MAX;
+        }
+        g[u][v] = {c, true};
+    }
+    for(int i=0; i< N; i++){
+        int v;
+        cin >> v;
+        if(v > 0){
+            cout << "Oferta ";
+            S.push_back({i, v});  
+            cout << "ID " << S.back().id << " Valor " << S.back().valor << endl;
+        }
+        else if(v < 0){
+            v *= -1;
+            cout << "Demanda ";
+            D.push_back({i, v}); 
+            cout << "ID " << D.back().id << " Valor " << D.back().valor << endl;
+        }
+    }
+    for(auto x: g){
+        for(auto y: x){
+            cout << y.capacidade << ' ' << y.conectado << " | ";
+        }
+        cout << endl;
     }
 
-    // Ler ofertas e demandas
-    ofertas.resize(N, 0);
-    demandas.resize(N, 0);
-    
-    for (int i = 0; i < N; i++) {
-        int valor;
-        cin >> valor;
-        if (valor > 0) ofertas[i] = valor;
-        else if (valor < 0) demandas[i] = -valor;
-    }
 
-    int totalOferta = accumulate(ofertas.begin(), ofertas.end(), 0);
-    int totalDemanda = accumulate(demandas.begin(), demandas.end(), 0);
+    cplex(g);
 
-    if (totalOferta != totalDemanda) {
-        cerr << "ERRO: Oferta total (" << totalOferta 
-            << ") ≠ Demanda total (" << totalDemanda << ")!" << endl;
-        return 1;
-    }
-
-    executarCPLEX();
     return 0;
 }
