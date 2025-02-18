@@ -2,92 +2,163 @@
 #include <ilcplex/ilocplex.h>
 
 using namespace std;
-ILOSTLBEGIN
-#define CPLEX_TIME_LIM 3600
+ILOSTLBEGIN //MACRO - "using namespace" for ILOCPEX
+#define CPLEX_TIME_LIM 3600 //3600 segundos
 
-int N; // Número de agentes/tarefas
-vector<vector<int>> custos; // Matriz de custos
+int N, M; // Quantidade de vertices (N) e quantidade de arestas (M)
+vector<vector<int>> custo;
 
-void cplex() {
-    IloEnv env;
-    try {
-        IloModel model(env);
 
-        // Variáveis de decisão binárias (x[i][j] = 1 se agente i designado à tarefa j)
-        IloArray<IloNumVarArray> x(env);
-        for (int i = 0; i < N; i++) {
-            x.add(IloNumVarArray(env));
-            for (int j = 0; j < N; j++) {
-                x[i].add(IloIntVar(env, 0, 1)); // Variáveis binárias
-            }
-        }
+void cplex(vector<vector<int>> &custo){
+    //CPLEX
+    IloEnv env; //Define o ambiente do CPLEX
 
-        // Função Objetivo: Minimizar o custo total
-        IloExpr fo(env);
-        for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
-                fo += custos[i][j] * x[i][j];
-            }
-        }
-        model.add(IloMinimize(env, fo));
-        fo.end();
+    //Variaveis --------------------------------------------- 
+    int i, j, k; //Auxiliares
+    int numberVar = 0; //Total de Variaveis
+    int numberRes = 0; //Total de Restricoes
 
-        // Restrições ---------------------------------------------------------
-        // Cada agente designado a exatamente UMA tarefa
-        for (int i = 0; i < N; i++) {
-            IloExpr restricao(env);
-            for (int j = 0; j < N; j++) {
-                restricao += x[i][j];
-            }
-            model.add(restricao == 1);
-            restricao.end();
-        }
 
-        // Cada tarefa designada a exatamente UM agente
+    //---------- MODELAGEM ---------------
+    //VARIAVEIS DE DECISAO (x_i) binaria
+    IloArray<IloNumVarArray> x(env);
+	for(i = 0; i < N; i++ ){
+		x.add(IloNumVarArray(env));
+		for( j = 0; j < N; j++ ){
+            x[i].add(IloIntVar(env, 0, 1));
+			numberVar++;
+		}
+	}
+
+    //Definicao do ambiente modelo ------------------------------------------
+    IloModel model ( env );
+    
+    // //Definicao do ambiente expressoes, para os somatorios ---------------------------------
+    IloExpr sum(env); /// Expression for Sum
+
+    //FUNCAO OBJETIVO: Determinar a designação de menor custo ---------------------------------------------
+    sum.clear();
+    for(i = 0; i< N; i++){
+        for(j=0; j< N; j++){
+            sum += (custo[i][j] * x[i][j]); // Somatório do custo de i j * x_i x_j
+        }        
+    }  
+    model.add(IloMinimize(env, sum)); //Minimizacao 
+
+    //RESTRICOES ---------------------------------------------    
+    
+    // R1 - Restricao de tarefa designada
+    for (int i = 0; i < N; i++) {
+        sum.clear();
         for (int j = 0; j < N; j++) {
-            IloExpr restricao(env);
-            for (int i = 0; i < N; i++) {
-                restricao += x[i][j];
-            }
-            model.add(restricao == 1);
-            restricao.end();
+            sum += x[i][j];
         }
-
-        // Execução do modelo
-        IloCplex cplex(model);
-        cplex.setParam(IloCplex::TiLim, CPLEX_TIME_LIM);
-
-        if (cplex.solve()) {
-            cout << "Custo Total: " << cplex.getObjValue() << endl;
-            // Exibir designações
-            for (int i = 0; i < N; i++) {
-                for (int j = 0; j < N; j++) {
-                    if (cplex.getValue(x[i][j]) >= 0.99) { // Evitar erros de precisão
-                        cout << "Agente " << i << " -> Tarefa " << j << endl;
-                    }
-                }
-            }
-        } else {
-            cerr << "Nenhuma solução viável!" << endl;
-        }
-
-        env.end();
-    } catch (IloException& e) {
-        cerr << "Erro CPLEX: " << e << endl;
+        model.add(sum == 1);
+        numberRes++;    
     }
+
+    // R2 - Restricao de pessoa designada
+    for (int j = 0; j < N; j++) {
+        sum.clear();
+        for (int i = 0; i < N; i++) {
+            sum += x[i][j];
+        }
+        model.add(sum == 1);
+        numberRes++;    
+    }
+
+    //------ EXECUCAO do MODELO ----------
+    time_t timer, timer2;
+    IloNum value, objValue;
+    double runTime;
+    string status;
+
+    //Informacoes ---------------------------------------------	
+    printf("--------Informacoes da Execucao:----------\n\n");
+    printf("#Var: %d\n", numberVar);
+    printf("#Restricoes: %d\n", numberRes);
+    cout << "Memory usage after variable creation:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
+
+    IloCplex cplex(model);
+    cout << "Memory usage after cplex(Model):  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
+
+    //Setting CPLEX Parameters
+    cplex.setParam(IloCplex::TiLim, CPLEX_TIME_LIM);
+
+    time(&timer);
+    cplex.solve();//COMANDO DE EXECUCAO
+    time(&timer2);
+
+    //Results
+    bool sol = true;
+
+    switch(cplex.getStatus()){
+        case IloAlgorithm::Optimal: 
+            status = "Optimal";
+            break;
+        case IloAlgorithm::Feasible: 
+            status = "Feasible";
+            break;
+        default: 
+            status = "No Solution";
+            sol = false;
+    }
+
+    cout << endl << endl;
+    cout << "Status da FO: " << status << endl;
+
+    if(sol){ 
+
+        objValue = cplex.getObjValue();
+        runTime = difftime(timer2, timer);
+        
+        cout << "Variaveis de decisao: " << endl;
+        for( i = 0; i < N; i++ ){
+            for(int j = 0; j < N; j++){
+                value = IloRound(cplex.getValue(x[i][j]));
+                printf("x[%d][%d]: %.0lf\n", i, j, value);
+            }
+        }
+        printf("\n");
+        
+        cout << "Funcao Objetivo Valor = " << objValue << endl;
+        printf("..(%.6lf seconds).\n\n", runTime);
+
+    }else{
+        printf("No Solution!\n");
+    }
+
+    //Free Memory
+    cplex.end();
+    sum.end();
+
+    cout << "Memory usage before end:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
+    env.end();
 }
 
-int main() {
-    cin >> N;
-    custos.resize(N, vector<int>(N));
+int main(){
+  //Leitura dos dados:
+  //A partir de um arquivo (entrada.txt)
+    int i;
+    cin >> N >> M;
+    custo.resize(N, vector<int> (N));
 
-    // Ler matriz de custos
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            cin >> custos[i][j];
+    // leitura do grafo
+    for(i=0; i< M; i++){
+        for(int j = 0; j< N; j++){
+            cin >> custo[i][j];
         }
     }
 
-    cplex();
+    for(int i=0; i< N; i++){
+        for(int j=0; j<N; j++){
+            cout << custo[i][j] << " ";
+        }
+    }
+
+   
+
+    cplex(custo);
+
     return 0;
 }
