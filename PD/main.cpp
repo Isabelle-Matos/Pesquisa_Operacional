@@ -15,9 +15,6 @@ void cplex(vector<vector<int>> &custo){
 
     //Variaveis --------------------------------------------- 
     int i, j, k; //Auxiliares
-    int numberVar = 0; //Total de Variaveis
-    int numberRes = 0; //Total de Restricoes
-
 
     //---------- MODELAGEM ---------------
     //VARIAVEIS DE DECISAO (x_i) binaria
@@ -26,7 +23,6 @@ void cplex(vector<vector<int>> &custo){
 		x.add(IloNumVarArray(env));
 		for( j = 0; j < N; j++ ){
             x[i].add(IloIntVar(env, 0, 1));
-			numberVar++;
 		}
 	}
 
@@ -53,8 +49,7 @@ void cplex(vector<vector<int>> &custo){
         for (int j = 0; j < N; j++) {
             sum += x[i][j];
         }
-        model.add(sum == 1);
-        numberRes++;    
+        model.add(sum == 1); 
     }
 
     // R2 - Restricao de pessoa designada
@@ -64,7 +59,6 @@ void cplex(vector<vector<int>> &custo){
             sum += x[i][j];
         }
         model.add(sum == 1);
-        numberRes++;    
     }
 
     //------ EXECUCAO do MODELO ----------
@@ -75,8 +69,6 @@ void cplex(vector<vector<int>> &custo){
 
     //Informacoes ---------------------------------------------	
     printf("--------Informacoes da Execucao:----------\n\n");
-    printf("#Var: %d\n", numberVar);
-    printf("#Restricoes: %d\n", numberRes);
     cout << "Memory usage after variable creation:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
 
     IloCplex cplex(model);
@@ -150,13 +142,11 @@ int main(){
         }
     }
 
-    for(int i=0; i< N; i++){
-        for(int j=0; j<N; j++){
-            cout << custo[i][j] << " ";
-        }
-    }
-
-   
+    // for(int i=0; i< N; i++){
+    //     for(int j=0; j<N; j++){
+    //         cout << custo[i][j] << " ";
+    //     }
+    // }
 
     cplex(custo);
 

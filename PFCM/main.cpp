@@ -25,8 +25,6 @@ void cplex(vector<vector<Aresta>> &g){
 
     //Variaveis --------------------------------------------- 
     int i, j, k; //Auxiliares
-    int numberVar = 0; //Total de Variaveis
-    int numberRes = 0; //Total de Restricoes
 
 
     //---------- MODELAGEM ---------------
@@ -37,7 +35,6 @@ void cplex(vector<vector<Aresta>> &g){
         for( j = 0; j < N; j++ ){
             if(g[i][j].conectado == 1){
                 x[i].add(IloIntVar(env, 0, g[i][j].fluxo_maximo));
-                numberVar++;
             }else{
                 x[i].add(IloIntVar(env, 0, 0));
             }
@@ -79,7 +76,6 @@ void cplex(vector<vector<Aresta>> &g){
             }
         }
         model.add(sum - sum2 <= S[i].valor);
-        numberRes++;    
     }
 
     // R2 - Restricao de demanda
@@ -98,7 +94,6 @@ void cplex(vector<vector<Aresta>> &g){
             }
         }
         model.add(sum - sum2 <= D[i].valor);
-        numberRes++;    
     }
 
     // R3 - Restricao de transbordo
@@ -117,18 +112,6 @@ void cplex(vector<vector<Aresta>> &g){
         }
 
         model.add(sum - sum2 == 0);
-        numberRes++;    
-    }
-
-    //R4 - Restricao de capacidade
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            if (g[i][j].conectado == 1) {
-                model.add(0 <= x[i][j]); // Limita fluxo entre 0
-                model.add(x[i][j] <= g[i][j].fluxo_maximo); // e a capacidade da aresta
-                numberRes++;
-            }
-        }
     }
 
     //------ EXECUCAO do MODELO ----------
@@ -139,8 +122,6 @@ void cplex(vector<vector<Aresta>> &g){
 
     //Informacoes ---------------------------------------------	
     printf("--------Informacoes da Execucao:----------\n\n");
-    printf("#Var: %d\n", numberVar);
-    printf("#Restricoes: %d\n", numberRes);
     cout << "Memory usage after variable creation:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
 
     IloCplex cplex(model);
@@ -222,34 +203,32 @@ int main(){
         
 
     }
-    for(auto x: g){
-        for(auto y: x){
-            cout << y.custo << ' ' << y.fluxo_maximo << ' ' << y.conectado << " | ";
-        }
-        cout << endl;
-    }
+    // for(auto x: g){
+    //     for(auto y: x){
+    //         cout << y.custo << ' ' << y.fluxo_maximo << ' ' << y.conectado << " | ";
+    //     }
+    //     cout << endl;
+    // }
     
     for(int i=0; i< N; i++){
         int v;
         cin >> v;
         if(v > 0){
-            cout << "Oferta ";
+            // cout << "Oferta ";
             S.push_back({i, v});  
-            cout << "ID " << S.back().id << " Valor " << S.back().valor << endl;
+            // cout << "ID " << S.back().id << " Valor " << S.back().valor << endl;
         }
         else if(v < 0){
-            cout << "Demanda ";
+            // cout << "Demanda ";
             D.push_back({i, v}); 
-            cout << "ID " << D.back().id << " Valor " << D.back().valor << endl;
+            // cout << "ID " << D.back().id << " Valor " << D.back().valor << endl;
         }
         else{
-            cout << "Transposto ";
+            // cout << "Transposto ";
             T.push_back({i, 0});  
-            cout << "ID " << T.back().id << " Valor " << T.back().valor << endl;
+            // cout << "ID " << T.back().id << " Valor " << T.back().valor << endl;
         }
     }
-    
-   
 
     cplex(g);
 
