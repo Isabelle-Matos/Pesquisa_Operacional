@@ -82,12 +82,6 @@ void cplex(vector<vector<Aresta>> &g) {
         }
     }
 
-    //------ EXECUCAO do MODELO ----------
-    time_t timer, timer2;
-    IloNum value, objValue;
-    double runTime;
-    string status;
-
     //Informacoes ---------------------------------------------	
     printf("--------Informacoes da Execucao:----------\n\n");
     cout << "Memory usage after variable creation:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
@@ -151,7 +145,6 @@ void cplex(vector<vector<Aresta>> &g) {
     cout << "Memory usage before end:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
     env.end();
 }
-
 
 int main() {
     int i;
