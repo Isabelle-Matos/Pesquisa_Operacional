@@ -17,8 +17,6 @@ void cplex(vector<vector<Aresta>> &g) {
     IloEnv env;
 
     int i, j, k;
-    int numberVar = 0;
-    int numberRes = 0;
 
     IloArray<IloNumVarArray> x(env);
     for (i = 0; i < N; i++) {
@@ -26,7 +24,6 @@ void cplex(vector<vector<Aresta>> &g) {
         for (j = 0; j < N; j++) {
             if (g[i][j].conectado == 1) {
                 x[i].add(IloIntVar(env, 0, g[i][j].capacidade));
-                numberVar++;
             } else {
                 x[i].add(IloIntVar(env, 0, 0));
             }
@@ -85,54 +82,67 @@ void cplex(vector<vector<Aresta>> &g) {
         }
     }
 
-    // Execução do modelo
+    //Informacoes ---------------------------------------------	
+    printf("--------Informacoes da Execucao:----------\n\n");
+    cout << "Memory usage after variable creation:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
+
     IloCplex cplex(model);
+    cout << "Memory usage after cplex(Model):  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
+
+    //Setting CPLEX Parameters
     cplex.setParam(IloCplex::TiLim, CPLEX_TIME_LIM);
 
-    time_t timer, timer2;
     time(&timer);
-    cplex.solve();
+    cplex.solve();//COMANDO DE EXECUCAO
     time(&timer2);
 
+    //Results
     bool sol = true;
-    string status;
 
-    switch (cplex.getStatus()) {
-        case IloAlgorithm::Optimal:
-            status = "Ótimo";
+    switch(cplex.getStatus()){
+        case IloAlgorithm::Optimal: 
+            status = "Optimal";
             break;
-        case IloAlgorithm::Feasible:
-            status = "Viável";
+        case IloAlgorithm::Feasible: 
+            status = "Feasible";
             break;
-        default:
-            status = "Sem solução";
+        default: 
+            status = "No Solution";
             sol = false;
     }
 
+    cout << endl << endl;
     cout << "Status da FO: " << status << endl;
 
-    if (sol) {
-        double objValue = cplex.getObjValue();
-        double runTime = difftime(timer2, timer);
+    if(sol){ 
 
-        cout << "Objective Function Value: " << objValue << endl;
-        cout << "Variable Values:" << endl;
-
-        for (i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
-                if (g[i][j].conectado == 1) {
-                    double value = IloRound(cplex.getValue(x[i][j]));
-                    printf("X[%d][%d]: %.6lf\n", i, j, value);
+        objValue = cplex.getObjValue();
+        runTime = difftime(timer2, timer);
+        
+        cout << "Variaveis de decisao: " << endl;
+        for( i = 0; i < N; i++ ){
+            for(int j = 0; j < N; j++){
+                if(g[i][j].conectado == 1){
+                    value = IloRound(cplex.getValue(x[i][j]));
+                    printf("x[%d][%d]: %.0lf\n", i, j, value);
                 }
             }
         }
+        printf("\n");
+        
+        cout << "Funcao Objetivo Valor = " << objValue << endl;
+        printf("..(%.6lf seconds).\n\n", runTime);
 
-        cout << "Execution Time: " << runTime << " seconds." << endl;
-    } else {
-        cout << "Sem solução!" << endl;
+    }else{
+        printf("No Solution!\n");
     }
 
+    //Free Memory
     cplex.end();
+    sum.end();
+    sum2.end();
+
+    cout << "Memory usage before end:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
     env.end();
 }
 

@@ -24,8 +24,6 @@ void cplex(vector<vector<Aresta>> &g) {
 
     //Variáveis --------------------------------------------- 
     int i, j, k; //Auxiliares
-    int numberVar = 0; //Total de Variáveis
-    int numberRes = 0; //Total de Restrições
 
     //---------- MODELAGEM ---------------
     //Definição - Variáveis de Decisão 2 dimensões (x_ij) binárias
@@ -35,7 +33,6 @@ void cplex(vector<vector<Aresta>> &g) {
         for (j = 0; j < N; j++) {
             if (g[i][j].conectado == 1) {
                 x[i].add(IloIntVar(env, 0, 1));
-                numberVar++;
             } else {
                 x[i].add(IloIntVar(env, 0, 0));
             }
@@ -106,8 +103,6 @@ void cplex(vector<vector<Aresta>> &g) {
 
     //Informações ---------------------------------------------    
     printf("--------Informações da Execução:----------\n\n");
-    printf("#Var: %d\n", numberVar);
-    printf("#Restrições: %d\n", numberRes);
     cout << "Uso de memória após criação das variáveis:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
 
     IloCplex cplex(model);

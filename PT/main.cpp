@@ -24,9 +24,6 @@ void cplex(vector<vector<Aresta>> &g){
 
     //Variaveis --------------------------------------------- 
     int i, j, k; //Auxiliares
-    int numberVar = 0; //Total de Variaveis
-    int numberRes = 0; //Total de Restricoes
-
 
     //---------- MODELAGEM ---------------
     //Definicao - Variaveis de Decisao 2 dimensoes (x_ij) não binárias (discretas)
@@ -36,7 +33,6 @@ void cplex(vector<vector<Aresta>> &g){
         for( j = 0; j < N; j++ ){
             if(g[i][j].conectado == 1){
                 x[i].add(IloIntVar(env, 0, INT_MAX));
-                numberVar++;
             }else{
                 x[i].add(IloIntVar(env, 0, 0));
             }
@@ -70,8 +66,7 @@ void cplex(vector<vector<Aresta>> &g){
                 sum += x[S[i].id][j];
             }
         }
-        model.add(sum <= S[i].valor);
-        numberRes++;   
+        model.add(sum <= S[i].valor);  
     }
  
 
@@ -83,19 +78,9 @@ void cplex(vector<vector<Aresta>> &g){
             sum += x[j][D[i].id];
         }
     }
-        model.add(sum == D[i].valor);
-        numberRes++;    
+        model.add(sum == D[i].valor);  
     }
 
-    //R3 - Restricao de nao negatividade
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            if (g[i][j].conectado == 1) {
-                model.add(0 <= x[i][j]);
-                numberRes++;
-            }
-        }
-    }
 
     //------ EXECUCAO do MODELO ----------
     time_t timer, timer2;
@@ -105,8 +90,6 @@ void cplex(vector<vector<Aresta>> &g){
 
     //Informacoes ---------------------------------------------	
     printf("--------Informacoes da Execucao:----------\n\n");
-    printf("#Var: %d\n", numberVar);
-    printf("#Restricoes: %d\n", numberRes);
     cout << "Memory usage after variable creation:  " << env.getMemoryUsage() / (1024. * 1024.) << " MB" << endl;
 
     IloCplex cplex(model);
@@ -188,23 +171,23 @@ int main(){
         int v;
         cin >> v;
         if(v > 0){
-            cout << "Oferta ";
+            // cout << "Oferta ";
             S.push_back({i, v});  
-            cout << "ID " << S.back().id << " Valor " << S.back().valor << endl;
+            // cout << "ID " << S.back().id << " Valor " << S.back().valor << endl;
         }
         else if(v < 0){
             v *= -1;
-            cout << "Demanda ";
+            // cout << "Demanda ";
             D.push_back({i, v}); 
-            cout << "ID " << D.back().id << " Valor " << D.back().valor << endl;
+            // cout << "ID " << D.back().id << " Valor " << D.back().valor << endl;
         }
     }
-    for(auto x: g){
-        for(auto y: x){
-            cout << y.capacidade << ' ' << y.conectado << " | ";
-        }
-        cout << endl;
-    }
+    // for(auto x: g){
+    //     for(auto y: x){
+    //         cout << y.capacidade << ' ' << y.conectado << " | ";
+    //     }
+    //     cout << endl;
+    // }
 
 
     cplex(g);
