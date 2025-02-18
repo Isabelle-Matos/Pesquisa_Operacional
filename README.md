@@ -58,13 +58,13 @@ Para rodar os modelos, é necessário que você tenha o seguinte ambiente config
 1. **Instalar o CPLEX**
 2. **Compilar os Códigos**: Navegue até a pasta do problema desejado e compile o código com o comando:
 
-   \`\`\`bash
+   \`\`\`
    make
    \`\`\`
 
 3. **Executar o Modelo**: Após a compilação, execute o programa com o comando:
 
-   \`\`\`bash
+   \`\`\`
    ./problema.exe < entrada.txt
    \`\`\`
 
