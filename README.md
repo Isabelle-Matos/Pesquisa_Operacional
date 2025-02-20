@@ -18,29 +18,12 @@ Cada um desses problemas é implementado de forma separada em suas respectivas p
 
 A estrutura de pastas do repositório é organizada da seguinte maneira:
 
-\`\`\`
 /Trabalho_PLI
-    /PFCM
+    /modelo
         entrada.txt
         Makefile
         main.cpp
-    /PT
-        entrada.txt
-        Makefile
-        main.cpp
-    /PD
-        entrada.txt
-        Makefile
-        main.cpp
-    /PCM
-        entrada.txt
-        Makefile
-        main.cpp
-    /PFM
-        entrada.txt
-        Makefile
-        main.cpp
-\`\`\`
+
 - **entrada.txt**: Arquivo de entrada contendo os dados necessários para a execução do modelo.
 - **Makefile**: Arquivo para automatizar a compilação.
 - **main.cpp**: Arquivo principal com o código C++.
